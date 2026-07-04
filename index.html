@@ -58,6 +58,13 @@
         <h2>Interested people</h2>
         <span id="count">0 tracked</span>
       </div>
+      <div class="actions backup-actions">
+        <button type="button" id="exportCsvButton" class="secondary">Export CSV</button>
+        <label class="import-label secondary">
+          <span>Import CSV</span>
+          <input type="file" id="importCsvInput" accept=".csv,text/csv" hidden />
+        </label>
+      </div>
       <ul id="peopleList" class="people-list"></ul>
     </section>
   </main>

@@ -9,6 +9,8 @@ const count = document.getElementById('count');
 const installButton = document.getElementById('installButton');
 const savePersonButton = document.getElementById('savePersonButton');
 const cancelEditButton = document.getElementById('cancelEditButton');
+const exportCsvButton = document.getElementById('exportCsvButton');
+const importCsvInput = document.getElementById('importCsvInput');
 const template = document.getElementById('personTemplate');
 const initialLocationInput = document.getElementById('initialLocation');
 const getInitialLocationButton = document.getElementById('getInitialLocationButton');
@@ -30,6 +32,8 @@ let currentEditingPersonIndex = null;
 let currentVisitPersonIndex = null;
 let currentLocationCoords = null;
 let locationContext = null; // 'initial' or 'visit'
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
 function loadPeople() {
   const saved = window.localStorage.getItem('ministryPeople');
@@ -325,6 +329,92 @@ function clearAll() {
   renderPeople();
 }
 
+function escapeCsvValue(value) {
+  if (value === null || value === undefined) return '';
+  const stringValue = String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+}
+
+function exportPeopleToCsv() {
+  const header = ['name', 'contact', 'notes', 'followUp', 'location', 'createdAt', 'updatedAt', 'visits'];
+  const rows = people.map((person) => {
+    const visits = (person.visits || []).map((visit) => {
+      const visitLocation = visit.location ? `location:${visit.location}` : '';
+      const visitNotes = visit.notes ? `notes:${visit.notes}` : '';
+      const visitDate = visit.date ? `date:${visit.date}` : '';
+      return [visitDate, visitNotes, visitLocation].filter(Boolean).join(' | ');
+    }).join(' || ');
+
+    return [
+      escapeCsvValue(person.name || ''),
+      escapeCsvValue(person.contact || ''),
+      escapeCsvValue(person.notes || ''),
+      escapeCsvValue(person.followUp || ''),
+      escapeCsvValue(person.location || ''),
+      escapeCsvValue(person.createdAt || ''),
+      escapeCsvValue(person.updatedAt || ''),
+      escapeCsvValue(visits),
+    ].join(',');
+  });
+
+  const csvContent = [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'ministry-interest-backup.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function importPeopleFromCsv(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const text = event.target?.result;
+    if (typeof text !== 'string') return;
+
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return;
+
+    const parsedPeople = lines.slice(1).map((line) => {
+      const columns = line.split(',');
+      const [name, contact, notes, followUp, location, createdAt, updatedAt, visits] = columns;
+      return {
+        name: name || '',
+        contact: contact || '',
+        notes: notes || '',
+        followUp: followUp || '',
+        location: location || '',
+        createdAt: createdAt ? Number(createdAt) : Date.now(),
+        updatedAt: updatedAt ? Number(updatedAt) : undefined,
+        visits: [],
+      };
+    }).filter((person) => person.name || person.contact || person.notes);
+
+    if (!parsedPeople.length) {
+      window.alert('No valid people records were found in the selected CSV file.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Import ${parsedPeople.length} record(s) from this CSV file? This will add them to your current list.`);
+    if (!confirmed) return;
+
+    people = [...parsedPeople, ...people];
+    savePeople();
+    renderPeople();
+    importCsvInput.value = '';
+  };
+
+  reader.readAsText(file);
+}
+
 function openVisitModal(personIndex) {
   currentVisitPersonIndex = personIndex;
   visitPersonNameInput.value = people[personIndex].name;
@@ -374,6 +464,10 @@ function saveVisit(event) {
 form.addEventListener('submit', addPerson);
 cancelEditButton.addEventListener('click', cancelEditingPerson);
 clearButton.addEventListener('click', clearAll);
+exportCsvButton.addEventListener('click', exportPeopleToCsv);
+importCsvInput.addEventListener('change', (event) => {
+  importPeopleFromCsv(event.target.files?.[0]);
+});
 visitForm.addEventListener('submit', saveVisit);
 modalCancelButton.addEventListener('click', closeVisitModal);
 
@@ -403,7 +497,19 @@ window.addEventListener('beforeinstallprompt', (event) => {
 });
 
 installButton.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
+  if (isIOS && !isInStandaloneMode) {
+    installButton.textContent = 'Open in Safari';
+    window.open('https://www.apple.com/iphone/', '_blank', 'noopener,noreferrer');
+    window.alert('On iPhone, open this app in Safari and tap Share > Add to Home Screen to install it.');
+    return;
+  }
+
+  if (!deferredPrompt) {
+    installButton.textContent = 'Install unavailable';
+    window.alert('Install is not available on this device right now. Try opening the app in a supported browser.');
+    return;
+  }
+
   deferredPrompt.prompt();
   const choice = await deferredPrompt.userChoice;
   if (choice.outcome === 'accepted') {
@@ -422,6 +528,13 @@ if ('serviceWorker' in navigator) {
       console.error('Service Worker registration failed:', error);
     }
   });
+}
+
+if (isIOS && !isInStandaloneMode) {
+  installButton.hidden = false;
+  installButton.textContent = 'Install on iPhone';
+} else if (!isInStandaloneMode) {
+  installButton.hidden = false;
 }
 
 loadPeople();

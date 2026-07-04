@@ -104,6 +104,20 @@ textarea {
   align-items: center;
 }
 
+.backup-actions {
+  margin-bottom: 1rem;
+}
+
+.import-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.95rem 1.2rem;
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+}
+
 button {
   border: none;
   border-radius: 14px;
