@@ -1,4 +1,20 @@
-const APP_VERSION = '1.0.0';
+let APP_VERSION = '1.0.0';
+
+async function loadAppVersion() {
+  try {
+    const response = await fetch('./version.json');
+    if (!response.ok) return;
+    const data = await response.json();
+    APP_VERSION = data.version || APP_VERSION;
+    const versionElement = document.querySelector('.app-version');
+    if (versionElement) {
+      versionElement.textContent = `Version: ${APP_VERSION}`;
+    }
+  } catch (error) {
+    console.warn('Unable to load app version:', error);
+  }
+}
+
 const form = document.getElementById('personForm');
 const nameInput = document.getElementById('name');
 const contactInput = document.getElementById('contact');
