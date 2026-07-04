@@ -195,6 +195,21 @@ button[type="submit"] {
   background: #d97706;
 }
 
+.navigate-button {
+  background: #2563eb;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.navigate-button:hover {
+  background: #1d4ed8;
+}
+
+.navigate-button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
 .log-visit-button {
   background: #10b981;
   color: white;

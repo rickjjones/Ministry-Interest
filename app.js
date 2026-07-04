@@ -49,6 +49,36 @@ function formatFollowUp(date) {
   });
 }
 
+function openNavigation(destination) {
+  if (!destination) return;
+
+  const coordinateMatch = destination.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+  const isAppleDevice = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroidDevice = /Android/i.test(navigator.userAgent);
+
+  let url;
+
+  if (coordinateMatch) {
+    const [, latitude, longitude] = coordinateMatch;
+    if (isAppleDevice) {
+      url = `https://maps.apple.com/?daddr=${latitude},${longitude}`;
+    } else {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+    }
+  } else {
+    const encodedDestination = encodeURIComponent(destination);
+    if (isAppleDevice) {
+      url = `https://maps.apple.com/?daddr=${encodedDestination}`;
+    } else if (isAndroidDevice) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}`;
+    } else {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}`;
+    }
+  }
+
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 async function getLocation() {
   const isInitial = locationContext === 'initial';
   const locationInputEl = isInitial ? initialLocationInput : visitLocationInput;
@@ -145,6 +175,16 @@ function renderPeople() {
     item.querySelector('.edit-button').addEventListener('click', () => {
       startEditingPerson(index);
     });
+
+    const navigateButton = item.querySelector('.navigate-button');
+    if (person.location) {
+      navigateButton.disabled = false;
+      navigateButton.addEventListener('click', () => {
+        openNavigation(person.location);
+      });
+    } else {
+      navigateButton.disabled = true;
+    }
     
     // Set up delete button
     item.querySelector('.delete-button').addEventListener('click', () => {
