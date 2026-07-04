@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b3d91" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Ministry Interest Tracker</title>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1>Ministry Interest Tracker</h1>
+        <p>Capture people you meet, track interest, and follow up from any device.</p>
+      </div>
+      <button id="installButton" class="install-button" hidden>Install App</button>
+    </header>
+
+    <section class="panel">
+      <h2>Add a person</h2>
+      <form id="personForm">
+        <label>
+          Name
+          <input type="text" id="name" placeholder="Full name" required />
+        </label>
+        <label>
+          Contact
+          <input type="text" id="contact" placeholder="Phone, email or notes" required />
+        </label>
+        <label>
+          Notes
+          <textarea id="notes" placeholder="Where you met them or what they said"></textarea>
+        </label>
+        <label>
+          Follow up
+          <input type="date" id="followUp" />
+        </label>
+        <label>
+          Initial Location
+          <div class="location-input-group">
+            <input type="text" id="initialLocation" placeholder="Click 'Get Location' to capture address..." />
+            <button type="button" id="getInitialLocationButton" class="location-button">📍 Get Location</button>
+          </div>
+          <span id="initialLocationStatus" class="location-status"></span>
+        </label>
+        <div class="actions">
+          <button type="submit" id="savePersonButton">Save Person</button>
+          <button type="button" id="cancelEditButton" class="secondary" hidden>Cancel Edit</button>
+          <button type="button" id="clearButton" class="secondary">Clear All</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Interested people</h2>
+        <span id="count">0 tracked</span>
+      </div>
+      <ul id="peopleList" class="people-list"></ul>
+    </section>
+  </main>
+
+  <template id="personTemplate">
+    <li class="person-card">
+      <div>
+        <strong class="person-name"></strong>
+        <span class="person-contact"></span>
+      </div>
+      <div class="initial-location-badge"></div>
+      <div class="tag-row">
+        <span class="person-followup"></span>
+        <button class="edit-button" aria-label="Edit person">Edit</button>
+        <button class="log-visit-button" aria-label="Log a visit">Log Visit</button>
+        <button class="delete-button" aria-label="Delete person">Remove</button>
+      </div>
+      <p class="person-notes"></p>
+      <div class="visit-history-container" style="display: none;">
+        <details class="visit-details">
+          <summary>Visit History (<span class="visit-count">0</span>)</summary>
+          <ul class="visit-list"></ul>
+        </details>
+      </div>
+    </li>
+  </template>
+
+  <dialog id="visitModal">
+    <div class="modal-content">
+      <h3>Log a Visit</h3>
+      <form id="visitForm">
+        <label>
+          Person Name
+          <input type="text" id="visitPersonName" disabled />
+        </label>
+        <label>
+          Visit Date
+          <input type="date" id="visitDate" required />
+        </label>
+        <label>
+          What did you talk about?
+          <textarea id="visitNotes" placeholder="Summarize your conversation..." required></textarea>
+        </label>
+        <div class="location-section">
+          <label>
+            Location
+            <div class="location-input-group">
+              <input type="text" id="visitLocation" placeholder="Click 'Get Location' to capture address..." />
+              <button type="button" id="getLocationButton" class="location-button">📍 Get Location</button>
+            </div>
+            <span id="locationStatus" class="location-status"></span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="modal-submit">Save Visit</button>
+          <button type="button" class="modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

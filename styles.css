@@ -1,0 +1,394 @@
+:root {
+  color-scheme: dark;
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-strong: #0b3d91;
+  --text: #1b2434;
+  --muted: #5c6b85;
+  --accent: #0b3d91;
+  --border: #dfe5ee;
+  --danger: #c92e3f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, system-ui, sans-serif;
+  background: linear-gradient(180deg, #e7edf8 0%, #f7f9fc 100%);
+  color: var(--text);
+}
+
+.app-shell {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 24px;
+  background: rgba(11, 61, 145, 0.15);
+}
+
+.app-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.85rem, 4vw, 2.4rem);
+}
+
+.app-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.install-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.95rem 1.2rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+label {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  font: inherit;
+  color: var(--text);
+  background: #fcfdff;
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+button {
+  border: none;
+  border-radius: 14px;
+  padding: 0.95rem 1.2rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  background: var(--accent);
+  color: white;
+}
+
+.secondary {
+  background: #eef2fb;
+  color: var(--text);
+}
+
+.person-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.person-card {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #fcfdff;
+}
+
+.person-card div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.person-name {
+  display: block;
+  font-size: 1.05rem;
+  margin-bottom: 0.2rem;
+}
+
+.person-contact,
+.person-followup {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.person-notes {
+  margin: 0.85rem 0 0;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.initial-location-badge {
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.initial-location-badge:empty {
+  display: none;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.delete-button {
+  background: var(--danger);
+  color: white;
+}
+
+.edit-button {
+  background: #f59e0b;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.edit-button:hover {
+  background: #d97706;
+}
+
+.log-visit-button {
+  background: #10b981;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.log-visit-button:hover {
+  background: #059669;
+}
+
+.visit-history-container {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.visit-details {
+  cursor: pointer;
+}
+
+.visit-details summary {
+  font-weight: 600;
+  color: var(--accent);
+  user-select: none;
+}
+
+.visit-details summary:hover {
+  text-decoration: underline;
+}
+
+.visit-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.visit-item {
+  padding: 0.75rem;
+  background: #f0f5ff;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.visit-date {
+  font-weight: 600;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.visit-note {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.visit-location {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+dialog {
+  width: 90%;
+  max-width: 500px;
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  padding: 1.5rem;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+#visitForm label {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#visitForm input,
+#visitForm textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  color: var(--text);
+  background: #fcfdff;
+}
+
+#visitForm textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.location-section {
+  margin-bottom: 1rem;
+}
+
+.location-input-group {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.location-input-group input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  color: var(--text);
+  background: #fcfdff;
+}
+
+.location-button {
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.location-button:hover {
+  background: #0284c7;
+}
+
+.location-button:disabled {
+  background: var(--muted);
+  cursor: not-allowed;
+}
+
+.location-status {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.location-status.loading {
+  color: #0ea5e9;
+}
+
+.location-status.success {
+  color: #10b981;
+}
+
+.location-status.error {
+  color: var(--danger);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.modal-submit {
+  background: var(--accent);
+  color: white;
+}
+
+.modal-cancel {
+  background: #eef2fb;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 1rem;
+  }
+  
+  dialog {
+    width: 95%;
+  }
+}
