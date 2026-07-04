@@ -1,4 +1,5 @@
-const CACHE_NAME = 'ministry-interest-tracker-v1';
+const APP_VERSION = '1.0.0';
+const CACHE_NAME = `ministry-interest-tracker-${APP_VERSION}`;
 const ASSETS = [
   './',
   './index.html',

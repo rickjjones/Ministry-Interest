@@ -2,6 +2,7 @@
   "name": "Ministry Interest Tracker",
   "short_name": "InterestTracker",
   "description": "Track people you meet in ministry and follow up with them later.",
+  "version": "1.0.0",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f7fb",

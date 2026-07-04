@@ -49,6 +49,13 @@ body {
   color: var(--muted);
 }
 
+.app-version {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .install-button {
   display: inline-flex;
   align-items: center;
