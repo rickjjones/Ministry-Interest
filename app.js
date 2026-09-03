@@ -9,6 +9,7 @@ async function loadAppVersion() {
     const versionElement = document.querySelector('.app-version');
     if (versionElement) {
       versionElement.textContent = `Version: ${APP_VERSION}`;
+      printf('App version updated to: %s', APP_VERSION);
     }
   } catch (error) {
     console.warn('Unable to load app version:', error);
