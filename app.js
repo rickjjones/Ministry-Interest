@@ -52,7 +52,9 @@ let currentVisitPersonId = null;
 let currentEditingVisitIndex = null;
 // iPadOS reports itself as a Mac, so also check for a touch screen.
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+// Set when Chrome/Edge report the app is already installed on this device.
+let installedElsewhere = false;
 
 function findPerson(id) {
   return people.find((person) => person.id === id);
@@ -702,27 +704,62 @@ visitModal.addEventListener('click', (event) => {
   }
 });
 
-// The install button only appears when installing is actually possible:
-// - Chrome/Edge/Android fire `beforeinstallprompt`, and we show the native prompt.
+// The install button only appears when installing is possible and not already done:
+// - Running as the installed app (its own window) never shows it, on any device.
+// - Chrome/Edge/Android fire `beforeinstallprompt` only when the app isn't installed,
+//   and getInstalledRelatedApps() double-checks from a browser tab.
 // - iOS/iPadOS have no prompt API, so we show "Add to Home Screen" instructions instead.
+//   Safari can't tell whether the app is on the Home Screen, so a Safari tab still shows them.
+function isRunningInstalled() {
+  return standaloneQuery.matches || window.navigator.standalone === true;
+}
+
+function updateInstallButton() {
+  if (isRunningInstalled() || installedElsewhere) {
+    installButton.hidden = true;
+  } else if (deferredPrompt) {
+    installButton.textContent = 'Install App';
+    installButton.hidden = false;
+  } else if (isIOS) {
+    installButton.textContent = 'How to Install';
+    installButton.hidden = false;
+  } else {
+    installButton.hidden = true;
+  }
+}
+
+async function checkInstalledRelatedApps() {
+  if (!('getInstalledRelatedApps' in navigator)) return;
+  try {
+    const apps = await navigator.getInstalledRelatedApps();
+    installedElsewhere = apps.length > 0;
+    updateInstallButton();
+  } catch {
+    // Unsupported or blocked; fall back to the other signals.
+  }
+}
+
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   deferredPrompt = event;
-  installButton.textContent = 'Install App';
-  installButton.hidden = false;
+  updateInstallButton();
 });
 
 window.addEventListener('appinstalled', () => {
-  installButton.hidden = true;
   deferredPrompt = null;
+  installedElsewhere = true;
+  updateInstallButton();
 });
+
+// Chrome can move a tab into the app window right after installing.
+standaloneQuery.addEventListener('change', updateInstallButton);
 
 installButton.addEventListener('click', async () => {
   if (deferredPrompt) {
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
-    installButton.hidden = true;
     deferredPrompt = null;
+    updateInstallButton();
     return;
   }
 
@@ -751,10 +788,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-if (isIOS && !isInStandaloneMode) {
-  installButton.textContent = 'How to Install';
-  installButton.hidden = false;
-}
+updateInstallButton();
+checkInstalledRelatedApps();
 
 loadPeople();
 renderPeople();
