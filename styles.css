@@ -112,7 +112,22 @@ textarea {
 }
 
 .backup-actions {
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.backup-status {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.backup-status:empty {
+  display: none;
+}
+
+.backup-status.overdue {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .import-label {

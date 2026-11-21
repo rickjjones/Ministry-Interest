@@ -1,18 +1,16 @@
-let APP_VERSION = '1.0.0';
-
+// version.json is the single source of truth for the app version.
 async function loadAppVersion() {
+  const versionElement = document.querySelector('.app-version');
   try {
-    const response = await fetch('./version.json');
-    if (!response.ok) return;
+    const response = await fetch('./version.json', { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    APP_VERSION = data.version || APP_VERSION;
-    const versionElement = document.querySelector('.app-version');
-    if (versionElement) {
-      versionElement.textContent = `Version: ${APP_VERSION}`;
-      printf('App version updated to: %s', APP_VERSION);
+    if (versionElement && data.version) {
+      versionElement.textContent = `Version: ${data.version}`;
     }
   } catch (error) {
     console.warn('Unable to load app version:', error);
+    if (versionElement) versionElement.textContent = '';
   }
 }
 
@@ -29,6 +27,7 @@ const savePersonButton = document.getElementById('savePersonButton');
 const cancelEditButton = document.getElementById('cancelEditButton');
 const exportCsvButton = document.getElementById('exportCsvButton');
 const importCsvInput = document.getElementById('importCsvInput');
+const backupStatus = document.getElementById('backupStatus');
 const template = document.getElementById('personTemplate');
 const initialLocationInput = document.getElementById('initialLocation');
 const getInitialLocationButton = document.getElementById('getInitialLocationButton');
@@ -62,9 +61,41 @@ function findPerson(id) {
   return people.find((person) => person.id === id);
 }
 
+const STORAGE_KEY = 'ministryPeople';
+const LAST_BACKUP_KEY = 'ministryLastBackupAt';
+const BACKUP_REMINDER_DAYS = 14;
+
 function loadPeople() {
-  const saved = window.localStorage.getItem('ministryPeople');
-  people = saved ? JSON.parse(saved) : [];
+  let saved = null;
+  try {
+    saved = window.localStorage.getItem(STORAGE_KEY);
+  } catch (error) {
+    console.error('Unable to read saved people:', error);
+    window.alert('This browser is blocking storage, so your list cannot be loaded or saved here.');
+    people = [];
+    return;
+  }
+
+  try {
+    const parsed = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(parsed)) throw new Error('Saved data is not a list');
+    people = parsed.filter((person) => person && typeof person === 'object');
+  } catch (error) {
+    // Keep the unreadable data under a separate key instead of losing it, then start fresh.
+    console.error('Saved data could not be read:', error);
+    const backupKey = `${STORAGE_KEY}.unreadable-${Date.now()}`;
+    try {
+      window.localStorage.setItem(backupKey, saved);
+    } catch (backupError) {
+      console.error('Unable to keep a copy of the unreadable data:', backupError);
+    }
+    window.alert(
+      `Your saved list could not be read, so the app is starting with an empty list.\n\n` +
+      `The original data was kept in browser storage as "${backupKey}". ` +
+      `If you have a CSV backup, use Import CSV to restore it.`
+    );
+    people = [];
+  }
 
   // Give records saved before IDs existed a stable ID.
   let migrated = false;
@@ -78,7 +109,55 @@ function loadPeople() {
 }
 
 function savePeople() {
-  window.localStorage.setItem('ministryPeople', JSON.stringify(people));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(people));
+    return true;
+  } catch (error) {
+    console.error('Unable to save people:', error);
+    window.alert('Your latest change could not be saved (storage may be full or blocked). Export a CSV backup now to avoid losing data.');
+    return false;
+  }
+}
+
+// Ask the browser not to clear this app's storage automatically (e.g. Safari after 7 days unused).
+async function requestPersistentStorage() {
+  if (!navigator.storage?.persist) return;
+  try {
+    const alreadyPersisted = await navigator.storage.persisted();
+    if (alreadyPersisted) return;
+    const granted = await navigator.storage.persist();
+    console.log(`Persistent storage ${granted ? 'granted' : 'not granted'}`);
+  } catch (error) {
+    console.warn('Unable to request persistent storage:', error);
+  }
+}
+
+function getLastBackupAt() {
+  try {
+    const value = Number(window.localStorage.getItem(LAST_BACKUP_KEY));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function updateBackupStatus() {
+  if (!backupStatus) return;
+  const lastBackupAt = getLastBackupAt();
+  const daysSince = lastBackupAt ? Math.floor((Date.now() - lastBackupAt) / 86400000) : null;
+  const overdue = people.length > 0 && (daysSince === null || daysSince >= BACKUP_REMINDER_DAYS);
+
+  if (!lastBackupAt) {
+    backupStatus.textContent = people.length
+      ? 'No backup yet. Your list is only stored on this device, so export a CSV to keep a copy.'
+      : '';
+  } else {
+    const when = new Date(lastBackupAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    backupStatus.textContent = overdue
+      ? `Last backup: ${when} (${daysSince} days ago). Consider exporting a new CSV.`
+      : `Last backup: ${when}`;
+  }
+  backupStatus.classList.toggle('overdue', overdue);
 }
 
 // Date inputs produce "YYYY-MM-DD". `new Date("YYYY-MM-DD")` parses that as UTC
@@ -188,16 +267,20 @@ async function reverseGeocode(latitude, longitude) {
   const buttonEl = isInitial ? getInitialLocationButton : getLocationButton;
 
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-    );
+    const params = new URLSearchParams({
+      format: 'jsonv2',
+      lat: String(latitude),
+      lon: String(longitude),
+      zoom: '18',
+      addressdetails: '0',
+      'accept-language': navigator.language || 'en',
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`);
+    if (!response.ok) throw new Error(`Geocoding failed with HTTP ${response.status}`);
     const data = await response.json();
-    
-    // Extract address components
-    const address = data.address || {};
-    const addressLine = data.address_line || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-    
-    locationInputEl.value = addressLine;
+    if (!data.display_name) throw new Error('No address found for this location');
+
+    locationInputEl.value = data.display_name;
     statusEl.textContent = '✓ Location captured';
     statusEl.className = 'location-status success';
     buttonEl.disabled = false;
@@ -214,6 +297,7 @@ async function reverseGeocode(latitude, longitude) {
 function renderPeople() {
   peopleList.innerHTML = '';
   count.textContent = `${people.length} tracked`;
+  updateBackupStatus();
 
   if (!people.length) {
     const emptyMessage = document.createElement('p');
@@ -277,18 +361,28 @@ function renderPeople() {
       visitCount.textContent = visits.length;
       visitList.innerHTML = '';
       
+      // Build with textContent so user-entered text is never interpreted as HTML.
       visits.forEach((visit) => {
         const visitItem = document.createElement('li');
         visitItem.className = 'visit-item';
-        let locationHtml = '';
+
+        const dateEl = document.createElement('span');
+        dateEl.className = 'visit-date';
+        dateEl.textContent = formatLocalDate(visit.date);
+
+        const noteEl = document.createElement('p');
+        noteEl.className = 'visit-note';
+        noteEl.textContent = visit.notes || '';
+
+        visitItem.append(dateEl, noteEl);
+
         if (visit.location) {
-          locationHtml = `<div class="visit-location">📍 ${visit.location}</div>`;
+          const locationEl = document.createElement('div');
+          locationEl.className = 'visit-location';
+          locationEl.textContent = `📍 ${visit.location}`;
+          visitItem.append(locationEl);
         }
-        visitItem.innerHTML = `
-          <span class="visit-date">${formatLocalDate(visit.date)}</span>
-          <p class="visit-note">${visit.notes}</p>
-          ${locationHtml}
-        `;
+
         visitList.appendChild(visitItem);
       });
     } else {
@@ -511,6 +605,13 @@ function exportPeopleToCsv() {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+
+  try {
+    window.localStorage.setItem(LAST_BACKUP_KEY, String(Date.now()));
+  } catch (error) {
+    console.warn('Unable to record backup time:', error);
+  }
+  updateBackupStatus();
 }
 
 function importPeopleFromCsv(file) {
@@ -731,3 +832,5 @@ if (isIOS && !isInStandaloneMode) {
 
 loadPeople();
 renderPeople();
+loadAppVersion();
+requestPersistentStorage();
