@@ -1,52 +1,56 @@
-const APP_VERSION = '1.0.0';
-const CACHE_NAME = `ministry-interest-tracker-${APP_VERSION}`;
+// Network-first service worker.
+// App files are always fetched fresh when online and fall back to the cache
+// when offline, so new deployments reach users without editing this file.
+// Bump CACHE_VERSION only when the caching strategy itself changes.
+const CACHE_VERSION = 'v2';
+const CACHE_NAME = `ministry-interest-tracker-${CACHE_VERSION}`;
 const ASSETS = [
-  './version.json',
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './version.json',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    fetch('./version.json')
-      .then((response) => response.json())
-      .then((data) => {
-        const version = data.version || APP_VERSION;
-        const versionedCacheName = `ministry-interest-tracker-${version}`;
-        return caches.open(versionedCacheName).then((cache) => cache.addAll(ASSETS));
-      })
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    fetch('./version.json')
-      .then((response) => response.json())
-      .then((data) => {
-        const version = data.version || APP_VERSION;
-        const currentCacheName = `ministry-interest-tracker-${version}`;
-        return caches.keys().then((keys) =>
-          Promise.all(
-            keys.filter((key) => key !== currentCacheName).map((key) => caches.delete(key))
-          )
-        );
-      })
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  // Only handle same-origin GETs; let third-party calls (e.g. geocoding) go straight to the network.
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
+    fetch(request, { cache: 'no-cache' })
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)));
+        }
         return response;
-      }).catch(() => caches.match('./'));
-    })
+      })
+      .catch(async () => {
+        const cached = await caches.match(request, { ignoreSearch: true });
+        if (cached) return cached;
+        if (request.mode === 'navigate') return caches.match('./');
+        return Response.error();
+      })
   );
 });

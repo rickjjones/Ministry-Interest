@@ -46,29 +46,71 @@ const modalCancelButton = document.querySelector('.modal-cancel');
 
 let deferredPrompt = null;
 let people = [];
-let currentEditingPersonIndex = null;
-let currentVisitPersonIndex = null;
+let currentEditingPersonId = null;
+let currentVisitPersonId = null;
 let currentLocationCoords = null;
 let locationContext = null; // 'initial' or 'visit'
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+function generateId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function findPerson(id) {
+  return people.find((person) => person.id === id);
+}
+
 function loadPeople() {
   const saved = window.localStorage.getItem('ministryPeople');
   people = saved ? JSON.parse(saved) : [];
+
+  // Give records saved before IDs existed a stable ID.
+  let migrated = false;
+  people.forEach((person) => {
+    if (!person.id) {
+      person.id = generateId();
+      migrated = true;
+    }
+  });
+  if (migrated) savePeople();
 }
 
 function savePeople() {
   window.localStorage.setItem('ministryPeople', JSON.stringify(people));
 }
 
-function formatFollowUp(date) {
-  if (!date) return 'No follow-up date';
-  return new Date(date).toLocaleDateString(undefined, {
+// Date inputs produce "YYYY-MM-DD". `new Date("YYYY-MM-DD")` parses that as UTC
+// midnight, which shows as the previous day west of UTC, so build a local date instead.
+function parseLocalDate(value) {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatLocalDate(value) {
+  const date = parseLocalDate(value);
+  if (!date) return value || '';
+  return date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function todayLocalIso() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function formatFollowUp(date) {
+  if (!date) return 'No follow-up date';
+  return formatLocalDate(date);
 }
 
 function openNavigation(destination) {
@@ -181,7 +223,8 @@ function renderPeople() {
     return;
   }
 
-  people.forEach((person, index) => {
+  people.forEach((person) => {
+    const personId = person.id;
     const item = template.content.cloneNode(true);
     item.querySelector('.person-name').textContent = person.name;
     item.querySelector('.person-contact').textContent = person.contact;
@@ -195,7 +238,7 @@ function renderPeople() {
     }
 
     item.querySelector('.edit-button').addEventListener('click', () => {
-      startEditingPerson(index);
+      startEditingPerson(personId);
     });
 
     const navigateButton = item.querySelector('.navigate-button');
@@ -210,8 +253,8 @@ function renderPeople() {
     
     // Set up delete button
     item.querySelector('.delete-button').addEventListener('click', () => {
-      people.splice(index, 1);
-      if (currentEditingPersonIndex === index) {
+      people = people.filter((p) => p.id !== personId);
+      if (currentEditingPersonId === personId) {
         cancelEditingPerson();
       }
       savePeople();
@@ -220,7 +263,7 @@ function renderPeople() {
 
     // Set up log visit button
     item.querySelector('.log-visit-button').addEventListener('click', () => {
-      openVisitModal(index);
+      openVisitModal(personId);
     });
 
     // Handle visit history display
@@ -242,7 +285,7 @@ function renderPeople() {
           locationHtml = `<div class="visit-location">📍 ${visit.location}</div>`;
         }
         visitItem.innerHTML = `
-          <span class="visit-date">${new Date(visit.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          <span class="visit-date">${formatLocalDate(visit.date)}</span>
           <p class="visit-note">${visit.notes}</p>
           ${locationHtml}
         `;
@@ -267,16 +310,16 @@ function resetPersonForm() {
 }
 
 function cancelEditingPerson() {
-  currentEditingPersonIndex = null;
+  currentEditingPersonId = null;
   resetPersonForm();
   nameInput.focus();
 }
 
-function startEditingPerson(index) {
-  const person = people[index];
+function startEditingPerson(id) {
+  const person = findPerson(id);
   if (!person) return;
 
-  currentEditingPersonIndex = index;
+  currentEditingPersonId = id;
   nameInput.value = person.name || '';
   contactInput.value = person.contact || '';
   notesInput.value = person.notes || '';
@@ -299,9 +342,13 @@ function addPerson(event) {
     followUp: followUpInput.value,
   };
 
-  if (currentEditingPersonIndex !== null) {
-    const personToUpdate = people[currentEditingPersonIndex];
-    if (!personToUpdate) return;
+  if (currentEditingPersonId !== null) {
+    const personToUpdate = findPerson(currentEditingPersonId);
+    if (!personToUpdate) {
+      // The record was removed while being edited; don't overwrite anyone else.
+      cancelEditingPerson();
+      return;
+    }
 
     personToUpdate.name = personValues.name;
     personToUpdate.contact = personValues.contact;
@@ -322,6 +369,7 @@ function addPerson(event) {
   }
 
   const newPerson = {
+    id: generateId(),
     ...personValues,
     createdAt: Date.now(),
     visits: [],
@@ -345,45 +393,120 @@ function clearAll() {
   people = [];
   savePeople();
   renderPeople();
+  if (currentEditingPersonId !== null) cancelEditingPerson();
 }
+
+const CSV_HEADER = ['id', 'name', 'contact', 'notes', 'followUp', 'location', 'createdAt', 'updatedAt', 'visits'];
 
 function escapeCsvValue(value) {
   if (value === null || value === undefined) return '';
   const stringValue = String(value);
-  if (/[",\n]/.test(stringValue)) {
+  if (/[",\r\n]/.test(stringValue)) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
   return stringValue;
 }
 
+// RFC 4180 parser: handles quoted fields containing commas, quotes and line breaks.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      row.push(field);
+      field = '';
+    } else if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[i + 1] === '\n') i += 1;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+
+  if (field !== '' || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+
+  return rows.filter((r) => r.some((value) => value.trim() !== ''));
+}
+
+// Visits are exported as JSON. Older backups used "date:… | notes:… | location:…" joined by " || ".
+function parseVisits(value) {
+  if (!value) return [];
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((visit) => visit && typeof visit === 'object')
+          .map((visit) => {
+            const clean = { date: String(visit.date || ''), notes: String(visit.notes || '') };
+            if (visit.location) clean.location = String(visit.location);
+            return clean;
+          });
+      }
+    } catch (error) {
+      console.warn('Could not parse visits JSON, trying legacy format:', error);
+    }
+  }
+
+  return trimmed.split(' || ').map((chunk) => {
+    const visit = { date: '', notes: '' };
+    chunk.split(' | ').forEach((part) => {
+      const match = /^(date|notes|location):([\s\S]*)$/.exec(part);
+      if (match) visit[match[1]] = match[2];
+    });
+    return visit;
+  }).filter((visit) => visit.date || visit.notes || visit.location);
+}
+
+function personKey(person) {
+  return `${person.name}|${person.contact}|${person.createdAt}`.toLowerCase();
+}
+
 function exportPeopleToCsv() {
-  const header = ['name', 'contact', 'notes', 'followUp', 'location', 'createdAt', 'updatedAt', 'visits'];
-  const rows = people.map((person) => {
-    const visits = (person.visits || []).map((visit) => {
-      const visitLocation = visit.location ? `location:${visit.location}` : '';
-      const visitNotes = visit.notes ? `notes:${visit.notes}` : '';
-      const visitDate = visit.date ? `date:${visit.date}` : '';
-      return [visitDate, visitNotes, visitLocation].filter(Boolean).join(' | ');
-    }).join(' || ');
+  const rows = people.map((person) => [
+    person.id,
+    person.name,
+    person.contact,
+    person.notes,
+    person.followUp,
+    person.location,
+    person.createdAt,
+    person.updatedAt,
+    JSON.stringify(person.visits || []),
+  ].map(escapeCsvValue).join(','));
 
-    return [
-      escapeCsvValue(person.name || ''),
-      escapeCsvValue(person.contact || ''),
-      escapeCsvValue(person.notes || ''),
-      escapeCsvValue(person.followUp || ''),
-      escapeCsvValue(person.location || ''),
-      escapeCsvValue(person.createdAt || ''),
-      escapeCsvValue(person.updatedAt || ''),
-      escapeCsvValue(visits),
-    ].join(',');
-  });
-
-  const csvContent = [header.join(','), ...rows].join('\n');
+  // Leading BOM so spreadsheet apps read the file as UTF-8.
+  const csvContent = `﻿${[CSV_HEADER.join(','), ...rows].join('\r\n')}`;
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'ministry-interest-backup.csv';
+  link.download = `ministry-interest-backup-${todayLocalIso()}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -395,25 +518,44 @@ function importPeopleFromCsv(file) {
 
   const reader = new FileReader();
   reader.onload = (event) => {
+    importCsvInput.value = ''; // allow choosing the same file again
     const text = event.target?.result;
     if (typeof text !== 'string') return;
 
-    const lines = text.trim().split(/\r?\n/).filter(Boolean);
-    if (!lines.length) return;
+    const rows = parseCsv(text.replace(/^﻿/, ''));
+    if (rows.length < 2) {
+      window.alert('No valid people records were found in the selected CSV file.');
+      return;
+    }
 
-    const parsedPeople = lines.slice(1).map((line) => {
-      const columns = line.split(',');
-      const [name, contact, notes, followUp, location, createdAt, updatedAt, visits] = columns;
-      return {
-        name: name || '',
-        contact: contact || '',
-        notes: notes || '',
-        followUp: followUp || '',
-        location: location || '',
-        createdAt: createdAt ? Number(createdAt) : Date.now(),
-        updatedAt: updatedAt ? Number(updatedAt) : undefined,
-        visits: [],
+    // Map columns by header name so older backups (without an id column) still import.
+    const header = rows[0].map((name) => name.trim());
+    const column = (name) => header.indexOf(name);
+    if (column('name') === -1) {
+      window.alert('This file does not look like a Ministry Interest backup (missing a "name" column).');
+      return;
+    }
+    const read = (row, name) => {
+      const index = column(name);
+      return index === -1 ? '' : (row[index] || '');
+    };
+
+    const parsedPeople = rows.slice(1).map((row) => {
+      const createdAt = Number(read(row, 'createdAt'));
+      const updatedAt = Number(read(row, 'updatedAt'));
+      const person = {
+        id: read(row, 'id').trim() || generateId(),
+        name: read(row, 'name'),
+        contact: read(row, 'contact'),
+        notes: read(row, 'notes'),
+        followUp: read(row, 'followUp'),
+        createdAt: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : Date.now(),
+        visits: parseVisits(read(row, 'visits')),
       };
+      if (Number.isFinite(updatedAt) && updatedAt > 0) person.updatedAt = updatedAt;
+      const location = read(row, 'location');
+      if (location) person.location = location;
+      return person;
     }).filter((person) => person.name || person.contact || person.notes);
 
     if (!parsedPeople.length) {
@@ -421,22 +563,41 @@ function importPeopleFromCsv(file) {
       return;
     }
 
-    const confirmed = window.confirm(`Import ${parsedPeople.length} record(s) from this CSV file? This will add them to your current list.`);
+    // Skip records that are already in the list (same id, or same name/contact/created time).
+    const existingIds = new Set(people.map((person) => person.id));
+    const existingKeys = new Set(people.map(personKey));
+    const newPeople = [];
+    parsedPeople.forEach((person) => {
+      if (existingIds.has(person.id) || existingKeys.has(personKey(person))) return;
+      existingIds.add(person.id);
+      existingKeys.add(personKey(person));
+      newPeople.push(person);
+    });
+    const skipped = parsedPeople.length - newPeople.length;
+
+    if (!newPeople.length) {
+      window.alert(`All ${parsedPeople.length} record(s) in this file are already in your list.`);
+      return;
+    }
+
+    const skippedNote = skipped ? ` ${skipped} record(s) already in your list will be skipped.` : '';
+    const confirmed = window.confirm(`Import ${newPeople.length} new record(s) from this CSV file?${skippedNote}`);
     if (!confirmed) return;
 
-    people = [...parsedPeople, ...people];
+    people = [...newPeople, ...people];
     savePeople();
     renderPeople();
-    importCsvInput.value = '';
   };
 
   reader.readAsText(file);
 }
 
-function openVisitModal(personIndex) {
-  currentVisitPersonIndex = personIndex;
-  visitPersonNameInput.value = people[personIndex].name;
-  visitDateInput.value = new Date().toISOString().split('T')[0]; // Set to today
+function openVisitModal(personId) {
+  const person = findPerson(personId);
+  if (!person) return;
+  currentVisitPersonId = personId;
+  visitPersonNameInput.value = person.name;
+  visitDateInput.value = todayLocalIso();
   visitNotesInput.value = '';
   visitLocationInput.value = '';
   locationStatus.textContent = '';
@@ -448,14 +609,18 @@ function openVisitModal(personIndex) {
 
 function closeVisitModal() {
   visitModal.close();
-  currentVisitPersonIndex = null;
+  currentVisitPersonId = null;
   visitForm.reset();
 }
 
 function saveVisit(event) {
   event.preventDefault();
-  
-  if (currentVisitPersonIndex === null) return;
+
+  const person = findPerson(currentVisitPersonId);
+  if (!person) {
+    closeVisitModal();
+    return;
+  }
 
   const visit = {
     date: visitDateInput.value,
@@ -467,12 +632,12 @@ function saveVisit(event) {
     visit.location = visitLocationInput.value.trim();
   }
 
-  if (!people[currentVisitPersonIndex].visits) {
-    people[currentVisitPersonIndex].visits = [];
+  if (!person.visits) {
+    person.visits = [];
   }
 
   // Add visit to the beginning (most recent first)
-  people[currentVisitPersonIndex].visits.unshift(visit);
+  person.visits.unshift(visit);
   
   savePeople();
   renderPeople();
@@ -540,7 +705,16 @@ installButton.addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      await navigator.serviceWorker.register('service-worker.js');
+      // Reload once when a new service worker takes over so the fresh app files are used.
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+      const registration = await navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });
+      registration.update().catch(() => {});
       console.log('Service Worker registered');
     } catch (error) {
       console.error('Service Worker registration failed:', error);
