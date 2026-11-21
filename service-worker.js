@@ -8,9 +8,12 @@ const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './utils.js',
   './app.js',
   './manifest.json',
   './icon.svg',
+  './icons/icon-192.png',
+  './icons/apple-touch-icon.png',
   './version.json',
 ];
 

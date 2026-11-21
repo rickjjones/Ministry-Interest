@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b3d91" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Interest Tracker" />
   <link rel="stylesheet" href="styles.css" />
   <title>Ministry Interest Tracker</title>
 </head>
@@ -97,7 +100,7 @@
 
   <dialog id="visitModal">
     <div class="modal-content">
-      <h3>Log a Visit</h3>
+      <h3 id="visitModalTitle">Log a Visit</h3>
       <form id="visitForm">
         <label>
           Person Name
@@ -129,6 +132,7 @@
     </div>
   </dialog>
 
+  <script src="utils.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

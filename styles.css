@@ -115,6 +115,26 @@ textarea {
   margin-bottom: 0.5rem;
 }
 
+.visit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.visit-action {
+  padding: 0.35rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  background: var(--border);
+  color: var(--text);
+}
+
+.visit-action.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
 .backup-status {
   margin: 0 0 1rem;
   font-size: 0.85rem;

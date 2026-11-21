@@ -41,21 +41,17 @@ const visitLocationInput = document.getElementById('visitLocation');
 const getLocationButton = document.getElementById('getLocationButton');
 const locationStatus = document.getElementById('locationStatus');
 const modalSubmitButton = document.querySelector('.modal-submit');
+const visitModalTitle = document.getElementById('visitModalTitle');
 const modalCancelButton = document.querySelector('.modal-cancel');
 
 let deferredPrompt = null;
 let people = [];
 let currentEditingPersonId = null;
 let currentVisitPersonId = null;
-let currentLocationCoords = null;
-let locationContext = null; // 'initial' or 'visit'
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+let currentEditingVisitIndex = null;
+// iPadOS reports itself as a Mac, so also check for a touch screen.
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-function generateId() {
-  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function findPerson(id) {
   return people.find((person) => person.id === id);
@@ -66,7 +62,7 @@ const LAST_BACKUP_KEY = 'ministryLastBackupAt';
 const BACKUP_REMINDER_DAYS = 14;
 
 function loadPeople() {
-  let saved = null;
+  let saved;
   try {
     saved = window.localStorage.getItem(STORAGE_KEY);
   } catch (error) {
@@ -160,33 +156,6 @@ function updateBackupStatus() {
   backupStatus.classList.toggle('overdue', overdue);
 }
 
-// Date inputs produce "YYYY-MM-DD". `new Date("YYYY-MM-DD")` parses that as UTC
-// midnight, which shows as the previous day west of UTC, so build a local date instead.
-function parseLocalDate(value) {
-  if (!value) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatLocalDate(value) {
-  const date = parseLocalDate(value);
-  if (!date) return value || '';
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function todayLocalIso() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
-}
-
 function formatFollowUp(date) {
   if (!date) return 'No follow-up date';
   return formatLocalDate(date);
@@ -222,79 +191,82 @@ function openNavigation(destination) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-async function getLocation() {
-  const isInitial = locationContext === 'initial';
-  const locationInputEl = isInitial ? initialLocationInput : visitLocationInput;
-  const statusEl = isInitial ? initialLocationStatus : locationStatus;
-  const buttonEl = isInitial ? getInitialLocationButton : getLocationButton;
+function setLocationStatus(statusEl, message, state = '') {
+  statusEl.textContent = message;
+  statusEl.className = state ? `location-status ${state}` : 'location-status';
+}
 
+// Look up a street address for coordinates. Returns null if no address is available.
+async function reverseGeocode(latitude, longitude) {
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    lat: String(latitude),
+    lon: String(longitude),
+    zoom: '18',
+    addressdetails: '0',
+    'accept-language': navigator.language || 'en',
+  });
+  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`);
+  if (!response.ok) throw new Error(`Geocoding failed with HTTP ${response.status}`);
+  const data = await response.json();
+  return data.display_name || null;
+}
+
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  });
+}
+
+function describeGeolocationError(error) {
+  if (error.code === error.PERMISSION_DENIED) return 'Location permission denied. Check your browser settings.';
+  if (error.code === error.POSITION_UNAVAILABLE) return 'Location information is unavailable.';
+  if (error.code === error.TIMEOUT) return 'Location request timed out.';
+  return 'Unable to get location';
+}
+
+// Fill `input` with the current address (or coordinates if no address is found).
+async function captureLocation({ input, status, button }) {
   if (!navigator.geolocation) {
-    statusEl.textContent = 'Geolocation is not supported by your browser';
-    statusEl.className = 'location-status error';
+    setLocationStatus(status, 'Geolocation is not supported by your browser', 'error');
     return;
   }
 
-  statusEl.textContent = 'Getting location...';
-  statusEl.className = 'location-status loading';
-  buttonEl.disabled = true;
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const { latitude, longitude } = position.coords;
-      currentLocationCoords = { latitude, longitude };
-      await reverseGeocode(latitude, longitude);
-    },
-    (error) => {
-      let message = 'Unable to get location';
-      if (error.code === error.PERMISSION_DENIED) {
-        message = 'Location permission denied. Check your browser settings.';
-      } else if (error.code === error.POSITION_UNAVAILABLE) {
-        message = 'Location information is unavailable.';
-      } else if (error.code === error.TIMEOUT) {
-        message = 'Location request timed out.';
-      }
-      statusEl.textContent = message;
-      statusEl.className = 'location-status error';
-      buttonEl.disabled = false;
-    }
-  );
-}
-
-async function reverseGeocode(latitude, longitude) {
-  const isInitial = locationContext === 'initial';
-  const locationInputEl = isInitial ? initialLocationInput : visitLocationInput;
-  const statusEl = isInitial ? initialLocationStatus : locationStatus;
-  const buttonEl = isInitial ? getInitialLocationButton : getLocationButton;
+  setLocationStatus(status, 'Getting location...', 'loading');
+  button.disabled = true;
 
   try {
-    const params = new URLSearchParams({
-      format: 'jsonv2',
-      lat: String(latitude),
-      lon: String(longitude),
-      zoom: '18',
-      addressdetails: '0',
-      'accept-language': navigator.language || 'en',
-    });
-    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`);
-    if (!response.ok) throw new Error(`Geocoding failed with HTTP ${response.status}`);
-    const data = await response.json();
-    if (!data.display_name) throw new Error('No address found for this location');
+    let position;
+    try {
+      position = await getCurrentPosition();
+    } catch (error) {
+      setLocationStatus(status, describeGeolocationError(error), 'error');
+      return;
+    }
 
-    locationInputEl.value = data.display_name;
-    statusEl.textContent = '✓ Location captured';
-    statusEl.className = 'location-status success';
-    buttonEl.disabled = false;
-  } catch (error) {
-    console.error('Reverse geocoding error:', error);
-    // Fallback to coordinates if API fails
-    locationInputEl.value = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-    statusEl.textContent = '✓ Location captured (coordinates)';
-    statusEl.className = 'location-status success';
-    buttonEl.disabled = false;
+    const { latitude, longitude } = position.coords;
+    const coordinates = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    try {
+      const address = await reverseGeocode(latitude, longitude);
+      input.value = address || coordinates;
+      setLocationStatus(status, address ? '✓ Location captured' : '✓ Location captured (coordinates)', 'success');
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      input.value = coordinates;
+      setLocationStatus(status, '✓ Location captured (coordinates)', 'success');
+    }
+  } finally {
+    button.disabled = false;
   }
 }
 
 function renderPeople() {
+  // Remember which visit histories are expanded so re-rendering doesn't collapse them.
+  const openVisitHistoryIds = new Set(
+    [...peopleList.querySelectorAll('.person-card .visit-details[open]')]
+      .map((details) => details.closest('.person-card')?.dataset.id)
+      .filter(Boolean)
+  );
   peopleList.innerHTML = '';
   count.textContent = `${people.length} tracked`;
   updateBackupStatus();
@@ -310,6 +282,7 @@ function renderPeople() {
   people.forEach((person) => {
     const personId = person.id;
     const item = template.content.cloneNode(true);
+    item.querySelector('.person-card').dataset.id = personId;
     item.querySelector('.person-name').textContent = person.name;
     item.querySelector('.person-contact').textContent = person.contact;
     item.querySelector('.person-notes').textContent = person.notes || 'No notes provided.';
@@ -337,6 +310,8 @@ function renderPeople() {
     
     // Set up delete button
     item.querySelector('.delete-button').addEventListener('click', () => {
+      const visitNote = person.visits?.length ? ` and their ${person.visits.length} logged visit(s)` : '';
+      if (!window.confirm(`Remove ${person.name || 'this person'}${visitNote}? This cannot be undone.`)) return;
       people = people.filter((p) => p.id !== personId);
       if (currentEditingPersonId === personId) {
         cancelEditingPerson();
@@ -360,9 +335,10 @@ function renderPeople() {
       visitHistoryContainer.style.display = 'block';
       visitCount.textContent = visits.length;
       visitList.innerHTML = '';
-      
+      item.querySelector('.visit-details').open = openVisitHistoryIds.has(personId);
+
       // Build with textContent so user-entered text is never interpreted as HTML.
-      visits.forEach((visit) => {
+      visits.forEach((visit, visitIndex) => {
         const visitItem = document.createElement('li');
         visitItem.className = 'visit-item';
 
@@ -383,6 +359,26 @@ function renderPeople() {
           visitItem.append(locationEl);
         }
 
+        const visitActions = document.createElement('div');
+        visitActions.className = 'visit-actions';
+
+        const editVisitButton = document.createElement('button');
+        editVisitButton.type = 'button';
+        editVisitButton.className = 'visit-action';
+        editVisitButton.textContent = 'Edit';
+        editVisitButton.setAttribute('aria-label', 'Edit visit');
+        editVisitButton.addEventListener('click', () => openVisitModal(personId, visitIndex));
+
+        const deleteVisitButton = document.createElement('button');
+        deleteVisitButton.type = 'button';
+        deleteVisitButton.className = 'visit-action danger';
+        deleteVisitButton.textContent = 'Delete';
+        deleteVisitButton.setAttribute('aria-label', 'Delete visit');
+        deleteVisitButton.addEventListener('click', () => deleteVisit(personId, visitIndex));
+
+        visitActions.append(editVisitButton, deleteVisitButton);
+        visitItem.append(visitActions);
+
         visitList.appendChild(visitItem);
       });
     } else {
@@ -396,8 +392,7 @@ function renderPeople() {
 function resetPersonForm() {
   form.reset();
   initialLocationInput.value = '';
-  initialLocationStatus.textContent = '';
-  initialLocationStatus.className = 'location-status';
+  setLocationStatus(initialLocationStatus, '');
   getInitialLocationButton.disabled = false;
   savePersonButton.textContent = 'Save Person';
   cancelEditButton.hidden = true;
@@ -419,8 +414,7 @@ function startEditingPerson(id) {
   notesInput.value = person.notes || '';
   followUpInput.value = person.followUp || '';
   initialLocationInput.value = person.location || '';
-  initialLocationStatus.textContent = person.location ? '✓ Existing location loaded' : '';
-  initialLocationStatus.className = person.location ? 'location-status success' : 'location-status';
+  setLocationStatus(initialLocationStatus, person.location ? '✓ Existing location loaded' : '', person.location ? 'success' : '');
   savePersonButton.textContent = 'Update Person';
   cancelEditButton.hidden = false;
   nameInput.focus();
@@ -490,97 +484,6 @@ function clearAll() {
   if (currentEditingPersonId !== null) cancelEditingPerson();
 }
 
-const CSV_HEADER = ['id', 'name', 'contact', 'notes', 'followUp', 'location', 'createdAt', 'updatedAt', 'visits'];
-
-function escapeCsvValue(value) {
-  if (value === null || value === undefined) return '';
-  const stringValue = String(value);
-  if (/[",\r\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
-  }
-  return stringValue;
-}
-
-// RFC 4180 parser: handles quoted fields containing commas, quotes and line breaks.
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let field = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += char;
-      }
-    } else if (char === '"') {
-      inQuotes = true;
-    } else if (char === ',') {
-      row.push(field);
-      field = '';
-    } else if (char === '\n' || char === '\r') {
-      if (char === '\r' && text[i + 1] === '\n') i += 1;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = '';
-    } else {
-      field += char;
-    }
-  }
-
-  if (field !== '' || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-
-  return rows.filter((r) => r.some((value) => value.trim() !== ''));
-}
-
-// Visits are exported as JSON. Older backups used "date:… | notes:… | location:…" joined by " || ".
-function parseVisits(value) {
-  if (!value) return [];
-  const trimmed = value.trim();
-
-  if (trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .filter((visit) => visit && typeof visit === 'object')
-          .map((visit) => {
-            const clean = { date: String(visit.date || ''), notes: String(visit.notes || '') };
-            if (visit.location) clean.location = String(visit.location);
-            return clean;
-          });
-      }
-    } catch (error) {
-      console.warn('Could not parse visits JSON, trying legacy format:', error);
-    }
-  }
-
-  return trimmed.split(' || ').map((chunk) => {
-    const visit = { date: '', notes: '' };
-    chunk.split(' | ').forEach((part) => {
-      const match = /^(date|notes|location):([\s\S]*)$/.exec(part);
-      if (match) visit[match[1]] = match[2];
-    });
-    return visit;
-  }).filter((visit) => visit.date || visit.notes || visit.location);
-}
-
-function personKey(person) {
-  return `${person.name}|${person.contact}|${person.createdAt}`.toLowerCase();
-}
-
 function exportPeopleToCsv() {
   const rows = people.map((person) => [
     person.id,
@@ -595,7 +498,7 @@ function exportPeopleToCsv() {
   ].map(escapeCsvValue).join(','));
 
   // Leading BOM so spreadsheet apps read the file as UTF-8.
-  const csvContent = `﻿${[CSV_HEADER.join(','), ...rows].join('\r\n')}`;
+  const csvContent = `\uFEFF${[CSV_HEADER.join(','), ...rows].join('\r\n')}`;
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -623,7 +526,7 @@ function importPeopleFromCsv(file) {
     const text = event.target?.result;
     if (typeof text !== 'string') return;
 
-    const rows = parseCsv(text.replace(/^﻿/, ''));
+    const rows = parseCsv(text.replace(/^\uFEFF/, ''));
     if (rows.length < 2) {
       window.alert('No valid people records were found in the selected CSV file.');
       return;
@@ -693,25 +596,42 @@ function importPeopleFromCsv(file) {
   reader.readAsText(file);
 }
 
-function openVisitModal(personId) {
+// Pass a visitIndex to edit an existing visit; omit it to log a new one.
+function openVisitModal(personId, visitIndex = null) {
   const person = findPerson(personId);
   if (!person) return;
+  const existingVisit = visitIndex !== null ? person.visits?.[visitIndex] : null;
+  if (visitIndex !== null && !existingVisit) return;
+
   currentVisitPersonId = personId;
+  currentEditingVisitIndex = visitIndex;
+  visitModalTitle.textContent = existingVisit ? 'Edit Visit' : 'Log a Visit';
+  modalSubmitButton.textContent = existingVisit ? 'Update Visit' : 'Save Visit';
   visitPersonNameInput.value = person.name;
-  visitDateInput.value = todayLocalIso();
-  visitNotesInput.value = '';
-  visitLocationInput.value = '';
-  locationStatus.textContent = '';
-  locationStatus.className = 'location-status';
+  visitDateInput.value = existingVisit?.date || todayLocalIso();
+  visitNotesInput.value = existingVisit?.notes || '';
+  visitLocationInput.value = existingVisit?.location || '';
+  setLocationStatus(locationStatus, '');
   getLocationButton.disabled = false;
-  currentLocationCoords = null;
   visitModal.showModal();
 }
 
 function closeVisitModal() {
   visitModal.close();
   currentVisitPersonId = null;
+  currentEditingVisitIndex = null;
   visitForm.reset();
+}
+
+function deleteVisit(personId, visitIndex) {
+  const person = findPerson(personId);
+  const visit = person?.visits?.[visitIndex];
+  if (!visit) return;
+  const when = visit.date ? ` from ${formatLocalDate(visit.date)}` : '';
+  if (!window.confirm(`Delete the visit${when} for ${person.name || 'this person'}? This cannot be undone.`)) return;
+  person.visits.splice(visitIndex, 1);
+  savePeople();
+  renderPeople();
 }
 
 function saveVisit(event) {
@@ -737,9 +657,13 @@ function saveVisit(event) {
     person.visits = [];
   }
 
-  // Add visit to the beginning (most recent first)
-  person.visits.unshift(visit);
-  
+  if (currentEditingVisitIndex !== null && person.visits[currentEditingVisitIndex]) {
+    person.visits[currentEditingVisitIndex] = visit;
+  } else {
+    // Add visit to the beginning (most recent first)
+    person.visits.unshift(visit);
+  }
+
   savePeople();
   renderPeople();
   closeVisitModal();
@@ -757,14 +681,12 @@ modalCancelButton.addEventListener('click', closeVisitModal);
 
 getInitialLocationButton.addEventListener('click', (e) => {
   e.preventDefault();
-  locationContext = 'initial';
-  getLocation();
+  captureLocation({ input: initialLocationInput, status: initialLocationStatus, button: getInitialLocationButton });
 });
 
 getLocationButton.addEventListener('click', (e) => {
   e.preventDefault();
-  locationContext = 'visit';
-  getLocation();
+  captureLocation({ input: visitLocationInput, status: locationStatus, button: getLocationButton });
 });
 
 // Close modal when clicking outside of it
@@ -774,33 +696,33 @@ visitModal.addEventListener('click', (event) => {
   }
 });
 
+// The install button only appears when installing is actually possible:
+// - Chrome/Edge/Android fire `beforeinstallprompt`, and we show the native prompt.
+// - iOS/iPadOS have no prompt API, so we show "Add to Home Screen" instructions instead.
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   deferredPrompt = event;
+  installButton.textContent = 'Install App';
   installButton.hidden = false;
 });
 
-installButton.addEventListener('click', async () => {
-  if (isIOS && !isInStandaloneMode) {
-    installButton.textContent = 'Open in Safari';
-    window.open('https://www.apple.com/iphone/', '_blank', 'noopener,noreferrer');
-    window.alert('On iPhone, open this app in Safari and tap Share > Add to Home Screen to install it.');
-    return;
-  }
-
-  if (!deferredPrompt) {
-    installButton.textContent = 'Install unavailable';
-    window.alert('Install is not available on this device right now. Try opening the app in a supported browser.');
-    return;
-  }
-
-  deferredPrompt.prompt();
-  const choice = await deferredPrompt.userChoice;
-  if (choice.outcome === 'accepted') {
-    console.log('PWA installation accepted');
-  }
+window.addEventListener('appinstalled', () => {
   installButton.hidden = true;
   deferredPrompt = null;
+});
+
+installButton.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    installButton.hidden = true;
+    deferredPrompt = null;
+    return;
+  }
+
+  if (isIOS) {
+    window.alert('To install: tap the Share button (the square with an arrow), then choose "Add to Home Screen".');
+  }
 });
 
 if ('serviceWorker' in navigator) {
@@ -824,9 +746,7 @@ if ('serviceWorker' in navigator) {
 }
 
 if (isIOS && !isInStandaloneMode) {
-  installButton.hidden = false;
-  installButton.textContent = 'Install on iPhone';
-} else if (!isInStandaloneMode) {
+  installButton.textContent = 'How to Install';
   installButton.hidden = false;
 }
 
