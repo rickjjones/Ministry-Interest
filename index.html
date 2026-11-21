@@ -62,14 +62,20 @@
         <h2>Interested people</h2>
         <span id="count">0 tracked</span>
       </div>
-      <div class="actions backup-actions">
-        <button type="button" id="exportCsvButton" class="secondary">Export CSV</button>
-        <label class="import-label secondary">
-          <span>Import CSV</span>
+      <div class="backup-bar">
+        <div class="backup-buttons">
+          <button type="button" id="exportCsvButton" class="record-action">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12" /></svg>
+            Export CSV
+          </button>
+          <button type="button" id="importCsvButton" class="record-action">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 9l5-5 5 5M12 4v12" /></svg>
+            Import CSV
+          </button>
           <input type="file" id="importCsvInput" accept=".csv,text/csv" hidden />
-        </label>
+        </div>
+        <p id="backupStatus" class="backup-status" role="status"></p>
       </div>
-      <p id="backupStatus" class="backup-status" role="status"></p>
       <ul id="peopleList" class="people-list"></ul>
     </section>
   </main>

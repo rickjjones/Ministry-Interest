@@ -27,6 +27,7 @@ const savePersonButton = document.getElementById('savePersonButton');
 const cancelEditButton = document.getElementById('cancelEditButton');
 const exportCsvButton = document.getElementById('exportCsvButton');
 const importCsvInput = document.getElementById('importCsvInput');
+const importCsvButton = document.getElementById('importCsvButton');
 const backupStatus = document.getElementById('backupStatus');
 const template = document.getElementById('personTemplate');
 const initialLocationInput = document.getElementById('initialLocation');
@@ -676,6 +677,8 @@ form.addEventListener('submit', addPerson);
 cancelEditButton.addEventListener('click', cancelEditingPerson);
 clearButton.addEventListener('click', clearAll);
 exportCsvButton.addEventListener('click', exportPeopleToCsv);
+// A real button (keyboard-focusable) that opens the hidden file picker.
+importCsvButton.addEventListener('click', () => importCsvInput.click());
 importCsvInput.addEventListener('change', (event) => {
   importPeopleFromCsv(event.target.files?.[0]);
 });

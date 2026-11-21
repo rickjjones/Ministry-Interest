@@ -111,8 +111,36 @@ textarea {
   align-items: center;
 }
 
-.backup-actions {
-  margin-bottom: 0.5rem;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+#count {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* Backup toolbar: outlined buttons on the left, last-backup status on the right. */
+.backup-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #f8fafd;
+}
+
+.backup-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .visit-actions {
@@ -145,7 +173,8 @@ textarea {
 }
 
 .backup-status {
-  margin: 0 0 1rem;
+  margin: 0;
+  padding: 0 0.4rem;
   font-size: 0.85rem;
   color: var(--muted);
 }
@@ -157,16 +186,6 @@ textarea {
 .backup-status.overdue {
   color: var(--danger);
   font-weight: 600;
-}
-
-.import-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.95rem 1.2rem;
-  border-radius: 14px;
-  cursor: pointer;
-  font: inherit;
 }
 
 button {
