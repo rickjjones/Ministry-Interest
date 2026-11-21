@@ -2,6 +2,41 @@
 
 A simple Progressive Web App built with HTML, CSS, and JavaScript for tracking people you meet in ministry. The app works offline, stores data in the browser, and can be installed to a device.
 
+## Features
+
+### People
+- Add a person with name, contact details, notes, a follow-up date and an initial location.
+- Edit anyone in the list; removing a person asks for confirmation first and says how many visits will be lost.
+- **Navigate** opens directions to a person's saved location in Apple Maps (iPhone, iPad, Mac) or Google Maps (everything else).
+
+### Visits
+- **Log Visit** records the date, what you talked about and where you were.
+- Each person's visit history (newest first) has **Edit** and **Delete** buttons for every visit. The history stays open while you make changes.
+
+### Location
+- **Get Location** uses the device's GPS and looks up the street address via OpenStreetMap. If no address can be found (or you're offline), it saves the coordinates instead.
+- Clear messages when location permission is denied, unavailable or times out.
+
+### Backup and restore
+- **Export CSV** saves everything, including visit history, to a dated file (`ministry-interest-backup-YYYY-MM-DD.csv`) that opens in Excel or Numbers.
+- **Import CSV** restores a backup. Records already in your list are skipped, so importing the same file twice won't create duplicates. Backups made by older versions of the app still import.
+- A status line under the backup buttons shows when you last exported, and turns red if you've never backed up or it's been 14 days or more.
+
+### Reliability
+- Works offline once opened; every deploy reaches installed copies the next time they're opened online.
+- Asks the browser to keep the app's storage permanently, so Safari doesn't clear it after a week of not using the app.
+- If saved data ever becomes unreadable, the app keeps a copy of it instead of discarding it, and tells you how to restore from a backup.
+- Dates are always shown on the correct calendar day, whatever your time zone.
+
+### Installing
+- On Android and desktop Chrome/Edge, an **Install App** button appears when the browser supports installing.
+- On iPhone and iPad, **How to Install** explains how to use Share → **Add to Home Screen**.
+- Includes proper home-screen icons for iOS and Android.
+
+## Privacy
+
+All data stays in your browser on your device; there is no server or account. The only outside request is the address lookup: when you tap **Get Location**, your coordinates are sent to OpenStreetMap's Nominatim service to find the street address.
+
 ## Files
 
 - `index.html` — app UI and form
