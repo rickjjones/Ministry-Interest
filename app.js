@@ -286,7 +286,9 @@ function renderPeople() {
     item.querySelector('.person-name').textContent = person.name;
     item.querySelector('.person-contact').textContent = person.contact;
     item.querySelector('.person-notes').textContent = person.notes || 'No notes provided.';
-    item.querySelector('.person-followup').textContent = formatFollowUp(person.followUp);
+    item.querySelector('.person-followup').textContent = person.followUp
+      ? `Follow up: ${formatFollowUp(person.followUp)}`
+      : formatFollowUp(person.followUp);
     
     // Display initial location if available
     const initialLocationBadge = item.querySelector('.initial-location-badge');
@@ -298,14 +300,15 @@ function renderPeople() {
       startEditingPerson(personId);
     });
 
+    // Only offer directions when there's somewhere to go.
     const navigateButton = item.querySelector('.navigate-button');
     if (person.location) {
-      navigateButton.disabled = false;
+      navigateButton.setAttribute('aria-label', `Directions to ${person.location}`);
       navigateButton.addEventListener('click', () => {
         openNavigation(person.location);
       });
     } else {
-      navigateButton.disabled = true;
+      navigateButton.hidden = true;
     }
     
     // Set up delete button

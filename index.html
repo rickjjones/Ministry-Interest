@@ -81,14 +81,26 @@
         <span class="person-contact"></span>
       </div>
       <div class="initial-location-badge"></div>
-      <div class="tag-row">
-        <span class="person-followup"></span>
-        <button class="edit-button" aria-label="Edit person">Edit</button>
-        <button class="navigate-button" aria-label="Open navigation">Navigate</button>
-        <button class="log-visit-button" aria-label="Log a visit">Log Visit</button>
-        <button class="delete-button" aria-label="Delete person">Remove</button>
-      </div>
+      <p class="person-followup"></p>
       <p class="person-notes"></p>
+      <div class="record-actions">
+        <button type="button" class="record-action primary log-visit-button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Log Visit
+        </button>
+        <button type="button" class="record-action navigate-button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="11" r="3" /><path d="M17.66 16.66 13.41 20.9a2 2 0 0 1-2.83 0l-4.24-4.24a8 8 0 1 1 11.32 0z" /></svg>
+          Directions
+        </button>
+        <button type="button" class="record-action edit-button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.83 2.83 0 0 0-4-4L4 16v4M13.5 6.5l4 4" /></svg>
+          Edit
+        </button>
+        <button type="button" class="record-action danger delete-button" aria-label="Remove person">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" /></svg>
+          <span class="record-action-label">Remove</span>
+        </button>
+      </div>
       <div class="visit-history-container" style="display: none;">
         <details class="visit-details">
           <summary>Visit History (<span class="visit-count">0</span>)</summary>

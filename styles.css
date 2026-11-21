@@ -123,16 +123,25 @@ textarea {
 
 .visit-action {
   padding: 0.35rem 0.75rem;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 0.8rem;
-  background: var(--border);
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: var(--text);
 }
 
+.visit-action:hover {
+  background: #eef2fb;
+}
+
 .visit-action.danger {
+  border-color: transparent;
   background: transparent;
   color: var(--danger);
-  border: 1px solid var(--danger);
+}
+
+.visit-action.danger:hover {
+  background: #fdecee;
 }
 
 .backup-status {
@@ -178,7 +187,7 @@ button[type="submit"] {
   color: var(--text);
 }
 
-.person-list {
+.people-list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -229,51 +238,100 @@ button[type="submit"] {
   display: none;
 }
 
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.person-followup {
+  margin: 0;
+}
+
+/* Record actions: one filled primary action, the rest outlined, Remove as quiet red text on the far right. */
+.person-card .record-actions {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+.record-action {
+  display: inline-flex;
   align-items: center;
-}
-
-.delete-button {
-  background: var(--danger);
-  color: white;
-}
-
-.edit-button {
-  background: #f59e0b;
-  color: white;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font-size: 0.9rem;
+  line-height: 1;
 }
 
-.edit-button:hover {
-  background: #d97706;
+.record-action svg {
+  width: 1.05em;
+  height: 1.05em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
-.navigate-button {
-  background: #2563eb;
+.record-action:hover {
+  background: #eef2fb;
+  border-color: #c9d3e3;
+}
+
+.record-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.record-action.primary {
+  background: var(--accent);
+  border-color: var(--accent);
   color: white;
-  font-size: 0.9rem;
 }
 
-.navigate-button:hover {
-  background: #1d4ed8;
+.record-action.primary:hover {
+  background: #082f70;
+  border-color: #082f70;
 }
 
-.navigate-button:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
+.record-action.danger {
+  margin-left: auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--danger);
 }
 
-.log-visit-button {
-  background: #10b981;
-  color: white;
-  font-size: 0.9rem;
+.record-action.danger:hover {
+  background: #fdecee;
+  border-color: transparent;
 }
 
-.log-visit-button:hover {
-  background: #059669;
+.record-action[hidden] {
+  display: none;
+}
+
+/* Phones: Log Visit gets its own full-width row; Remove shrinks to its icon. */
+@media (max-width: 480px) {
+  .record-action.primary {
+    flex: 1 0 100%;
+    justify-content: center;
+  }
+
+  .record-action.danger {
+    padding: 0.5rem 0.7rem;
+  }
+
+  .record-action.danger .record-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 .visit-history-container {
