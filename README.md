@@ -29,8 +29,9 @@ A simple Progressive Web App built with HTML, CSS, and JavaScript for tracking p
 - Dates are always shown on the correct calendar day, whatever your time zone.
 
 ### Installing
-- On Android and desktop Chrome/Edge, an **Install App** button appears when the browser supports installing.
-- On iPhone and iPad, **How to Install** explains how to use Share → **Add to Home Screen**.
+- On Android and desktop Chrome/Edge, an **Install App** button appears when the browser supports installing and the app isn't already installed.
+- On iPhone and iPad, **How to Install** explains how to use Share → **Add to Home Screen**. Safari can't tell whether the app is already installed, so tapping **I've installed it** (or the **×** next to the button) hides it for good.
+- The button never appears inside the installed app.
 - Includes proper home-screen icons for iOS and Android.
 
 ## Privacy

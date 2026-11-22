@@ -23,6 +23,12 @@ const clearButton = document.getElementById('clearButton');
 const peopleList = document.getElementById('peopleList');
 const count = document.getElementById('count');
 const installButton = document.getElementById('installButton');
+const installControls = document.getElementById('installControls');
+const dismissInstallButton = document.getElementById('dismissInstallButton');
+const installHelpModal = document.getElementById('installHelpModal');
+const installedConfirmButton = document.getElementById('installedConfirmButton');
+const installHelpCloseButton = document.getElementById('installHelpCloseButton');
+const INSTALL_HIDDEN_KEY = 'ministryInstallHidden';
 const savePersonButton = document.getElementById('savePersonButton');
 const cancelEditButton = document.getElementById('cancelEditButton');
 const exportCsvButton = document.getElementById('exportCsvButton');
@@ -709,22 +715,40 @@ visitModal.addEventListener('click', (event) => {
 // - Chrome/Edge/Android fire `beforeinstallprompt` only when the app isn't installed,
 //   and getInstalledRelatedApps() double-checks from a browser tab.
 // - iOS/iPadOS have no prompt API, so we show "Add to Home Screen" instructions instead.
-//   Safari can't tell whether the app is on the Home Screen, so a Safari tab still shows them.
+//   Safari can't tell whether the app is on the Home Screen, so the user can hide the button
+//   with "I've installed it" or the ×, and we remember that choice.
 function isRunningInstalled() {
   return standaloneQuery.matches || window.navigator.standalone === true;
 }
 
+function isInstallHiddenByUser() {
+  try {
+    return localStorage.getItem(INSTALL_HIDDEN_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function hideInstallForGood() {
+  try {
+    localStorage.setItem(INSTALL_HIDDEN_KEY, 'true');
+  } catch {
+    // Storage unavailable; the button is still hidden for this visit.
+  }
+  installControls.hidden = true;
+}
+
 function updateInstallButton() {
-  if (isRunningInstalled() || installedElsewhere) {
-    installButton.hidden = true;
+  if (isRunningInstalled() || installedElsewhere || isInstallHiddenByUser()) {
+    installControls.hidden = true;
   } else if (deferredPrompt) {
     installButton.textContent = 'Install App';
-    installButton.hidden = false;
+    installControls.hidden = false;
   } else if (isIOS) {
     installButton.textContent = 'How to Install';
-    installButton.hidden = false;
+    installControls.hidden = false;
   } else {
-    installButton.hidden = true;
+    installControls.hidden = true;
   }
 }
 
@@ -764,8 +788,21 @@ installButton.addEventListener('click', async () => {
   }
 
   if (isIOS) {
-    window.alert('To install: tap the Share button (the square with an arrow), then choose "Add to Home Screen".');
+    installHelpModal.showModal();
   }
+});
+
+dismissInstallButton.addEventListener('click', hideInstallForGood);
+
+installedConfirmButton.addEventListener('click', () => {
+  installHelpModal.close();
+  hideInstallForGood();
+});
+
+installHelpCloseButton.addEventListener('click', () => installHelpModal.close());
+
+installHelpModal.addEventListener('click', (event) => {
+  if (event.target === installHelpModal) installHelpModal.close();
 });
 
 if ('serviceWorker' in navigator) {

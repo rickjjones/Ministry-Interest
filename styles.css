@@ -69,6 +69,52 @@ body {
   cursor: pointer;
 }
 
+.install-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.install-controls[hidden] {
+  display: none;
+}
+
+.install-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.install-dismiss:hover {
+  background: rgba(11, 61, 145, 0.12);
+  color: var(--text);
+}
+
+.install-dismiss svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.install-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}
+
+.install-steps li + li {
+  margin-top: 0.5rem;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -416,6 +462,8 @@ dialog {
   border: none;
   border-radius: 20px;
   padding: 0;
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 

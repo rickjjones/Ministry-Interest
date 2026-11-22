@@ -19,7 +19,12 @@
         <p>Track interest of people you meet and follow up from any device.</p>
         <p class="app-version"></p>
       </div>
-      <button id="installButton" class="install-button" hidden>Install App</button>
+      <div id="installControls" class="install-controls" hidden>
+        <button type="button" id="installButton" class="install-button">Install App</button>
+        <button type="button" id="dismissInstallButton" class="install-dismiss" aria-label="Hide install button" title="Hide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+      </div>
     </header>
 
     <section class="panel">
@@ -147,6 +152,21 @@
           <button type="button" class="modal-cancel">Cancel</button>
         </div>
       </form>
+    </div>
+  </dialog>
+
+  <dialog id="installHelpModal">
+    <div class="modal-content">
+      <h3>Install on iPhone or iPad</h3>
+      <ol class="install-steps">
+        <li>Tap the <strong>Share</strong> button (the square with an arrow) in Safari.</li>
+        <li>Scroll down and choose <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong>. The app appears on your Home Screen.</li>
+      </ol>
+      <div class="modal-actions">
+        <button type="button" id="installedConfirmButton" class="modal-submit">I've installed it</button>
+        <button type="button" id="installHelpCloseButton" class="modal-cancel">Not now</button>
+      </div>
     </div>
   </dialog>
 
