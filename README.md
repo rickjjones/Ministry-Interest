@@ -36,7 +36,10 @@ A simple Progressive Web App built with HTML, CSS, and JavaScript for tracking p
 
 ## Privacy
 
-All data stays in your browser on your device; there is no server or account. The only outside request is the address lookup: when you tap **Get Location**, your coordinates are sent to OpenStreetMap's Nominatim service to find the street address.
+All data stays in your browser on your device; there is no server or account. The app makes two kinds of outside request:
+
+- **Address lookup:** when you tap **Get Location**, your coordinates are sent to OpenStreetMap's Nominatim service to find the street address.
+- **Usage analytics:** Google Analytics (loaded through Google Tag Manager) records anonymous usage such as page views, device type and approximate location. Nothing you type (names, contact details, notes or visit history) is sent, because it never leaves the device or appears in the page address.
 
 ## Files
 
